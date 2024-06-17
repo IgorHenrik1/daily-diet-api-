@@ -5,7 +5,7 @@ export async function up(knex: Knex): Promise<void> {
     table.uuid('id').primary()
     table.string('name')
     table.string('description')
-    table.string('diet')
+    table.boolean('diet')
     table.timestamp('created_at').defaultTo(knex.fn.now()).notNullable()
     table.uuid('user_id').index()
   })
