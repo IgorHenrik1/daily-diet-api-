@@ -1,22 +1,29 @@
 import { FastifyInstance } from 'fastify'
 import { knex } from '../database'
-import crypto from 'node:crypto'
+import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 
 export async function routes(app: FastifyInstance) {
-  app.post('/', async () => {
-    const createUser = await knex('users')
-      .insert({
-        id: crypto.randomUUID(),
-        name: 'Marlon Moraes',
-        email: 'marlon@email.com',
-        password: '123456',
-      })
-      .returning('*')
+  app.post('/user', async (request, reply) => {
+    const createUserBodySchema = z.object({
+      name: z.string(),
+      email: z.string().email(),
+      password: z.string(),
+    })
 
-    return createUser
+    const { name, email, password } = createUserBodySchema.parse(request.body)
+
+    await knex('users').insert({
+      id: randomUUID(),
+      name,
+      email,
+      password,
+    })
+
+    return reply.status(201).send(201)
   })
 
-  app.get('/list', async () => {
+  app.get('/users', async () => {
     const listUsers = await knex('users').select('*')
 
     return listUsers
