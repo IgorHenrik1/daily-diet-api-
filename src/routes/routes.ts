@@ -40,6 +40,24 @@ export async function routes(app: FastifyInstance) {
     return listUsers
   })
 
+  app.get('/metrics', async (request) => {
+    const getMetricsQuerySchema = z.object({
+      id: z.string().uuid(),
+    })
+
+    const { id } = getMetricsQuerySchema.parse(request.query)
+
+    const user = await knex('users').where('user_id', id).first()
+    const meals = await knex('meals').where('user_id', id)
+
+    const metrics = {
+      name: user.name,
+      meals: meals.length,
+      diet: meals.filter((meal) => meal.diet).length,
+    }
+    return metrics
+  })
+
   // criar refeições
 
   app.post('/meals', async (request, reply) => {
