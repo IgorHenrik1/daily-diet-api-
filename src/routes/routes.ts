@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { knex } from '../database'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { checkSessionIdExists } from '../middlewares/check-session-id-exists'
 
 export async function routes(app: FastifyInstance) {
   app.post('/', async (request, reply) => {
@@ -40,6 +41,8 @@ export async function routes(app: FastifyInstance) {
     return listUsers
   })
 
+  // listar metricas
+
   app.get('/metrics', async (request) => {
     const getMetricsQuerySchema = z.object({
       id: z.string().uuid(),
@@ -47,8 +50,13 @@ export async function routes(app: FastifyInstance) {
 
     const { id } = getMetricsQuerySchema.parse(request.query)
 
-    const user = await knex('users').where('user_id', id).first()
-    const meals = await knex('meals').where('user_id', id)
+    const { userId } = request.cookies
+    console.log(userId)
+    const user = await knex('users')
+      .where('user_id', userId)
+      .andWhere('id', id)
+      .first()
+    const meals = await knex('meals').where('user_id', userId)
 
     const metrics = {
       name: user.name,
@@ -106,44 +114,59 @@ export async function routes(app: FastifyInstance) {
 
   // deletar refeição
 
-  app.delete('/meals/:id', async (request, reply) => {
-    const getMealsParamsSchema = z.object({
-      id: z.string().uuid(),
-    })
+  app.delete(
+    '/meals/:id',
+    {
+      preHandler: [checkSessionIdExists],
+    },
+    async (request, reply) => {
+      const { userId } = request.cookies
+      const getMealsParamsSchema = z.object({
+        id: z.string().uuid(),
+      })
 
-    const { id } = getMealsParamsSchema.parse(request.params)
+      const { id } = getMealsParamsSchema.parse(request.params)
 
-    await knex('meals').where('id', id).delete()
+      await knex('meals').where('id', id).andWhere('user_id', userId).delete()
 
-    return reply.status(200).send(200)
-  })
+      return reply.status(200).send(200)
+    },
+  )
 
   // editar refeição
 
-  app.patch('/meals/:id', async (request, reply) => {
-    const getMealsParamsSchema = z.object({
-      id: z.string().uuid(),
-    })
-
-    const { id } = getMealsParamsSchema.parse(request.params)
-
-    const getMealsBodySchema = z.object({
-      name: z.string(),
-      description: z.string(),
-      diet: z.boolean(),
-    })
-
-    const { name, description, diet } = getMealsBodySchema.parse(request.body)
-
-    await knex('meals')
-      .where('id', id)
-      .update({
-        name,
-        description,
-        diet,
-        created_at: knex.raw(knex.fn.now()),
+  app.patch(
+    '/meals/:id',
+    {
+      preHandler: [checkSessionIdExists],
+    },
+    async (request, reply) => {
+      const { userId } = request.cookies
+      const getMealsParamsSchema = z.object({
+        id: z.string().uuid(),
       })
 
-    return reply.status(200).send(200)
-  })
+      const { id } = getMealsParamsSchema.parse(request.params)
+
+      const getMealsBodySchema = z.object({
+        name: z.string(),
+        description: z.string(),
+        diet: z.boolean(),
+      })
+
+      const { name, description, diet } = getMealsBodySchema.parse(request.body)
+
+      await knex('meals')
+        .where('id', id)
+        .andWhere('user_id', userId)
+        .update({
+          name,
+          description,
+          diet,
+          created_at: knex.raw(knex.fn.now()),
+        })
+
+      return reply.status(200).send(200)
+    },
+  )
 }
