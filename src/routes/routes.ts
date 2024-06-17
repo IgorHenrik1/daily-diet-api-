@@ -40,6 +40,8 @@ export async function routes(app: FastifyInstance) {
     return listUsers
   })
 
+  // criar refeições
+
   app.post('/meals', async (request, reply) => {
     const createUserBodySchema = z.object({
       name: z.string(),
@@ -82,5 +84,48 @@ export async function routes(app: FastifyInstance) {
     const listMeals = await knex('meals').where('user_id', id)
 
     return { listMeals }
+  })
+
+  // deletar refeição
+
+  app.delete('/meals/:id', async (request, reply) => {
+    const getMealsParamsSchema = z.object({
+      id: z.string().uuid(),
+    })
+
+    const { id } = getMealsParamsSchema.parse(request.params)
+
+    await knex('meals').where('id', id).delete()
+
+    return reply.status(200).send(200)
+  })
+
+  // editar refeição
+
+  app.patch('/meals/:id', async (request, reply) => {
+    const getMealsParamsSchema = z.object({
+      id: z.string().uuid(),
+    })
+
+    const { id } = getMealsParamsSchema.parse(request.params)
+
+    const getMealsBodySchema = z.object({
+      name: z.string(),
+      description: z.string(),
+      diet: z.boolean(),
+    })
+
+    const { name, description, diet } = getMealsBodySchema.parse(request.body)
+
+    await knex('meals')
+      .where('id', id)
+      .update({
+        name,
+        description,
+        diet,
+        created_at: knex.raw(knex.fn.now()),
+      })
+
+    return reply.status(200).send(200)
   })
 }
